@@ -1,0 +1,93 @@
+lua
+local DataStoreService = game:GetService("DataStoreService")
+local fruitDataStore = DataStoreService:GetDataStore ("FruitDataStore")
+
+-- قائمة الفواكه المتاحة وخصائصها
+local availableFruits = {
+    ["Kitsune Premium"] = {
+        color = Color3.fromRGB(255, 0, 0),
+        toolTip = "A powerful premium fruit with special abilities"
+    },
+    ["Dragon Fruit"] = {
+        color = Color3.fromRGB(0, 255, 0),
+        toolTip = "A dragon fruit that grants the player fire abilities"
+    },
+    ["Phoenix Fruit"] = {
+        color = Color3.fromRGB(0, 0, 255),
+        toolTip = "A phoenix fruit that allows the player to revive once"
+    },
+    -- أضف المزيد من الفواكه هنا بناءً على حاجتك
+}
+
+-- وظيفة لإعطاء الفاكهة المحددة
+local function givePremiumFruit(player, fruitName)
+    local fruitData = availableFruits[fruitName]
+    if not fruitData then
+        warn("Invalid fruit name: " .. fruitName)
+        return
+    end
+
+    local premiumFruit = Instance.new("Tool")
+    premiumFruit.Name = fruitName
+    premiumFruit.ToolTip = fruitData.toolTip
+
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1, 1, 1)
+    handle.Color = fruitData.color
+
+    handle.Parent = premiumFruit
+    premiumFruit.Grip = CFrame.new(0, -0.5, 0)
+    premiumFruit.Parent = player.Backpack
+
+    local script = Instance.new("Script")
+    script.Source = [[
+    script.Parent.Activated:Connect(function()
+        print("]] .. fruitName .. [[ power activated!")
+    end)
+    ]]
+    script.Parent = premiumFruit
+
+    print(fruitName .. " added to your backpack.")
+end
+
+-- حفظ الفاكهة عند مغادرة اللاعب
+game.Players.PlayerRemoving:Connect(function(player)
+    local backpack = player:FindFirstChild("Backpack")
+    local fruitName = backpack and backpack:FindFirstChildOfClass("Tool") and backpack:FindFirstChildOfClass("Tool").Name or ""
+    fruitDataStore:SetAsync(player.UserId .. "_premiumFruitName", fruitName)
+end)
+
+-- استرجاع الفاكهة عند دخول اللاعب
+lua
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        local success, storedFruitName = pcall(function()
+            return fruitDataStore:GetAsync(player.UserId .. "_premiumFruitName")
+        end)
+        if success and storedFruitName then
+            givePremiumFruit(player, storedFruitName)
+        end
+    end)
+    
+    -- إنشاء واجهة اختيار الفاكهة
+    local screenGui = Instance.new("ScreenGui", player.PlayerGui)
+    local frame = Instance.new("Frame", screenGui)
+    frame.Size = UDim2.new(0.3, 0, 0.4, 0)
+    frame.Position = UDim2.new(0.35, 0, 0.3, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    frame.BackgroundTransparency = 0.5
+
+    local uiListLayout = Instance.new("UIListLayout", frame)
+    uiListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    for fruitName, _ in pairs(availableFruits) do
+        local button = Instance.new("TextButton", frame)
+        button.Size = UDim2.new(1, -10, 0, 50)
+        button.Text = fruitName
+        button.LayoutOrder = #frame:GetChildren()
+        button.MouseButton1Click:Connect(function()
+            givePremiumFruit(player, fruitName)
+        end)
+    end
+end)
